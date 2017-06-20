@@ -10,7 +10,13 @@ A Cryptocurrency implementation from first principles and written in C.
 * [ ] Create a Blockchain of transactions
 * [ ] Create a Distributed Network and Consensus Algorithm
 
-
+# Requirements
+- [Libsodium] (https://download.libsodium.org/libsodium/releases/LATEST.tar.gz)
+  - wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
+  - cd libsodium
+  - make && make check
+  - sudo make install
+  
 # References
      - [Bitcoin and Cryptocurrency Technologies] (http://bitcoinbook.cs.princeton.edu)
      - "Mastering Bitcoins" Unlocking Cryptocurrencies 
