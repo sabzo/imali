@@ -4,7 +4,7 @@
 A Cryptocurrency implementation from first principles and written in C. 
 
 # Functionality
-* [ ] Create SHA 256 private key
+* [x] Create SHA 256 private key
 * [ ] Generate private & public key pair using Elliptic Curve
 * [ ] Create transactions, sign transactions and verify transactions
 * [ ] Create a Blockchain of transactions
