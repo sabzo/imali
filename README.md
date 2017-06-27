@@ -5,17 +5,13 @@ A Cryptocurrency implementation from first principles and written in C.
 
 # Functionality
 * [x] Create SHA 256 private key
-* [ ] Generate private & public key pair using Elliptic Curve
+* [x] Generate private & public key pair using Elliptic Curve
 * [ ] Create transactions, sign transactions and verify transactions
 * [ ] Create a Blockchain of transactions
 * [ ] Create a Distributed Network and Consensus Algorithm
 
 # Requirements
-- [Libsodium] (https://download.libsodium.org/libsodium/releases/LATEST.tar.gz)
-  - wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
-  - cd libsodium
-  - make && make check
-  - sudo make install
+- [OpenSSL 1.1.0] (https://github.com/openssl/openssl/blob/master/INSTALL)
   
 # References
      - [Bitcoin and Cryptocurrency Technologies] (http://bitcoinbook.cs.princeton.edu)
