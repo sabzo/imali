@@ -4,13 +4,15 @@
 A Cryptocurrency implementation from first principles and written in C. 
 
 # Functionality
-* [ ] Create SHA 256 private key
-* [ ] Generate private & public key pair using Elliptic Curve
+* [x] Create SHA 256 private key
+* [x] Generate private & public key pair using Elliptic Curve
 * [ ] Create transactions, sign transactions and verify transactions
 * [ ] Create a Blockchain of transactions
 * [ ] Create a Distributed Network and Consensus Algorithm
 
-
+# Requirements
+- [OpenSSL 1.1.0] (https://github.com/openssl/openssl/blob/master/INSTALL)
+  
 # References
      - [Bitcoin and Cryptocurrency Technologies] (http://bitcoinbook.cs.princeton.edu)
      - "Mastering Bitcoins" Unlocking Cryptocurrencies 
