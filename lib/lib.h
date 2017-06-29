@@ -1,12 +1,19 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <openssl/evp.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/obj_mac.h>
 #include <openssl/ecdsa.h>
 #define MESSAGE_LEN 32
+
+void error(char *msg) {
+  printf("Error: %s\n", msg);
+  exit(1);
+}
 
 /* 256 bit string */
 void random_256bit_string(unsigned char msg[32]) {
@@ -106,4 +113,59 @@ const EC_GROUP *get_group(EC_KEY *ec_key) {
 char *pub_key_hex(EC_KEY *ec_key) {
   point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
   return EC_POINT_point2hex(get_group(ec_key), get_public_key(ec_key), form, NULL);
+}
+
+void digest_message(const EVP_MD* (*hash)(void), const unsigned char *msg, size_t msg_len, unsigned char **digest, unsigned int *digest_len) {
+  EVP_MD_CTX *mdctx;
+if ((mdctx = EVP_MD_CTX_create()) == NULL)
+    error("EVP_MD_CTX_create()");
+
+  if (EVP_DigestInit_ex(mdctx, hash(), NULL) != 1) 
+    error("initializing msg context by initializing SHA256 algorithm");
+
+  if (EVP_DigestUpdate(mdctx, msg, msg_len) != 1)
+    error("Message Digest Update");
+  
+  if ((*digest = (unsigned char *) OPENSSL_malloc(EVP_MD_size(hash()))) == NULL)
+    error("Unable to allocate space for message digest");
+
+  if (EVP_DigestFinal_ex(mdctx, *digest, digest_len) != 1)
+    error("Unable to complete digest");
+
+  EVP_MD_CTX_destroy(mdctx);
+}
+
+/* Generate Address from Public Key & allocate memory */
+// A = RIPEMID(160(SHA256(K)))
+unsigned char *mget_address(EC_KEY *ec_key) {
+  // Convert point to BN
+  const EC_GROUP *group = NULL; 
+  EC_POINT *pub = NULL; 
+  point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
+  BIGNUM *bn_pub = NULL;
+  BN_CTX *ctx = NULL; // Not planning to use BN context for dealing with multiple big nubmers
+  int size_bin_pub; // size of binary public key
+  unsigned int size_digest = 0;
+  unsigned char *sha256_digest = NULL;
+  unsigned char *ripemd160_digest = NULL;
+  unsigned char *bin_pub = NULL; // bin of pub key
+  if ((group = get_group(ec_key)) == NULL) 
+    error("get_group()");
+  if ((pub = get_public_key(ec_key)) == NULL) 
+    error("get_public_key()");
+  if ((bn_pub = EC_POINT_point2bn(group, pub, form, bn_pub, ctx)) == NULL) 
+    error("Unable to convert public key point to big number");
+  // bn to bin
+  printf("pubPointHex: %s\n", BN_bn2hex(bn_pub));
+  bin_pub = malloc(BN_num_bytes(bn_pub));
+  BN_bn2bin(bn_pub, bin_pub);
+  if ((size_bin_pub = BN_bn2bin(bn_pub, bin_pub)) == 0) 
+    error("size of binary public key is 0, that sounds wrong!");
+  // Calculate Address
+  digest_message(EVP_sha256, bin_pub, size_bin_pub, &sha256_digest, &size_digest); 
+ digest_message(EVP_ripemd160, sha256_digest, size_bin_pub, &ripemd160_digest, &size_digest); 
+ 
+   // EVP_sha256
+  EC_POINT_free(pub);
+  return *ripemd160_digest;
 }
