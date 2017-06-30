@@ -137,7 +137,7 @@ if ((mdctx = EVP_MD_CTX_create()) == NULL)
 
 /* Generate Address from Public Key & allocate memory */
 // A = RIPEMID(160(SHA256(K)))
-unsigned char *mget_address(EC_KEY *ec_key) {
+unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
   const EC_GROUP *group = NULL; 
   EC_POINT *pub = NULL; 
@@ -145,7 +145,6 @@ unsigned char *mget_address(EC_KEY *ec_key) {
   BIGNUM *bn_pub = NULL;
   BN_CTX *ctx = NULL; // Not planning to use BN context for dealing with multiple big nubmers
   int size_bin_pub; // size of binary public key
-  unsigned int size_digest = 0;
   unsigned char *sha256_digest = NULL;
   unsigned char *ripemd160_digest = NULL;
   unsigned char *bin_pub = NULL; // bin of pub key
@@ -156,16 +155,17 @@ unsigned char *mget_address(EC_KEY *ec_key) {
   if ((bn_pub = EC_POINT_point2bn(group, pub, form, bn_pub, ctx)) == NULL) 
     error("Unable to convert public key point to big number");
   // bn to bin
-  printf("pubPointHex: %s\n", BN_bn2hex(bn_pub));
   bin_pub = malloc(BN_num_bytes(bn_pub));
   BN_bn2bin(bn_pub, bin_pub);
   if ((size_bin_pub = BN_bn2bin(bn_pub, bin_pub)) == 0) 
     error("size of binary public key is 0, that sounds wrong!");
   // Calculate Address
-  digest_message(EVP_sha256, bin_pub, size_bin_pub, &sha256_digest, &size_digest); 
- digest_message(EVP_ripemd160, sha256_digest, size_bin_pub, &ripemd160_digest, &size_digest); 
+  digest_message(EVP_sha256, bin_pub, size_bin_pub, &sha256_digest, size_digest); 
+  digest_message(EVP_ripemd160, sha256_digest, size_bin_pub, &ripemd160_digest, size_digest); 
  
    // EVP_sha256
   EC_POINT_free(pub);
-  return *ripemd160_digest;
+  free(bin_pub);
+
+  return ripemd160_digest;
 }
