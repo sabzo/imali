@@ -61,8 +61,11 @@ EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   }
   
   // multiply private key * Generator Constant to get a point on EC 
-  EC_POINT_mul(group, pub, prv, NULL, NULL, ctx);
-  EC_KEY_set_public_key(ec_key, pub);
+  if (EC_POINT_mul(group, pub, prv, NULL, NULL, ctx) != 1)
+    error("Unable to perform elliptic curve multiplication\n");
+
+  if (EC_KEY_set_public_key(ec_key, pub) != 1) 
+    error("Unable to set public key\n");
 
   /* Release memory */
   EC_POINT_free(pub);
@@ -80,7 +83,7 @@ void init_priv_pub_key_pair(void **ec_key) {
     printf("ec_key NULL 1\n");
   
   *ec_key = EC_KEY_new_by_curve_name(NID_secp256k1);
-  EC_KEY_generate_key(*ec_key);
+  EC_KEY_generate_key(*ec_key)
   if (!ec_key) 
     printf("ec_key NULL 2\n");
 }*/
@@ -135,12 +138,45 @@ if ((mdctx = EVP_MD_CTX_create()) == NULL)
   EVP_MD_CTX_destroy(mdctx);
 }
 
+/* return 4 bytes */
+// sha256(sha256(payload)) [first 4 bytes]
+unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *payload, int size_payload, int bytes_return) {
+  // Create a char array to fit both version number + payload
+  int size_msg = sizeof(char) * 2  + sizeof(char) * size_payload;
+  unsigned char *msg = malloc(size_msg);
+
+  // prepend version number
+  int i = 0;
+  if (version == 0) {
+    while (i <= 2) 
+        msg[i++] = '0';
+  }
+  int j = 0;
+  // Concantenate payload to version number
+  while (i <= size_payload) 
+    msg[i++] = payload[j++];
+
+  unsigned int size_midresult; // size of intermediate result
+  unsigned char *midresult= NULL;
+  unsigned char *result = malloc(sizeof(char) * 4);
+
+  // Double SHA 256
+  digest_message(EVP_sha256, msg, size_msg, &midresult, &size_midresult); 
+  digest_message(EVP_sha256, midresult, size_midresult, &midresult, &size_midresult); 
+  // return first four bytes
+
+  for (int i = 0; i < bytes_return; i++) 
+    result[i] = midresult[i];
+  free(msg);
+  return result;
+}
+
 /* Generate Address from Public Key & allocate memory */
 // A = RIPEMID(160(SHA256(K)))
 unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
   const EC_GROUP *group = NULL; 
-  EC_POINT *pub = NULL; 
+  EC_POINT *pub = NULL;
   point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
   BIGNUM *bn_pub = NULL;
   BN_CTX *ctx = NULL; // Not planning to use BN context for dealing with multiple big nubmers
@@ -156,7 +192,6 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
     error("Unable to convert public key point to big number");
   // bn to bin
   bin_pub = malloc(BN_num_bytes(bn_pub));
-  BN_bn2bin(bn_pub, bin_pub);
   if ((size_bin_pub = BN_bn2bin(bn_pub, bin_pub)) == 0) 
     error("size of binary public key is 0, that sounds wrong!");
   // Calculate Address
