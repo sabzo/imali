@@ -9,6 +9,9 @@
 #include <openssl/obj_mac.h>
 #include <openssl/ecdsa.h>
 #define MESSAGE_LEN 32
+#define BASE58_LEN 35 // maximum bitcoin address length 
+
+static const char *b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 void error(char *msg) {
   printf("Error: %s\n", msg);
@@ -76,18 +79,6 @@ EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   return ec_key;
 }
 
-/* Generate a private and public key pair */
-/*
-void init_priv_pub_key_pair(void **ec_key) {
-    if (!ec_key) 
-    printf("ec_key NULL 1\n");
-  
-  *ec_key = EC_KEY_new_by_curve_name(NID_secp256k1);
-  EC_KEY_generate_key(*ec_key)
-  if (!ec_key) 
-    printf("ec_key NULL 2\n");
-}*/
-
 EC_KEY *init_priv_pub_key_pair() {
   EC_KEY *ec_key;
   ec_key = EC_KEY_new_by_curve_name(NID_secp256k1);
@@ -138,8 +129,7 @@ if ((mdctx = EVP_MD_CTX_create()) == NULL)
   EVP_MD_CTX_destroy(mdctx);
 }
 
-/* return 4 bytes */
-// sha256(sha256(payload)) [first 4 bytes]
+/* return (sha256(payload)) [first n bytes] */
 unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *payload, int size_payload, int bytes_return) {
   // Create a char array to fit both version number + payload
   int size_msg = sizeof(char) * 2  + sizeof(char) * size_payload;
@@ -203,4 +193,72 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   free(bin_pub);
 
   return ripemd160_digest;
+}
+
+unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
+  // create context for BIGNUMBER operations
+  BN_CTX *ctx = NULL;
+
+  if ((ctx = BN_CTX_new()) == NULL) {
+    printf("Unable to to create BN CTX\n");
+    exit(1);
+  }
+
+  BN_CTX_start(ctx);
+  // Create BIG NUMBER variables
+  BIGNUM *bn58 = NULL;
+  BIGNUM *bn0 = NULL;
+  BIGNUM *bn_msg = NULL;
+  BIGNUM *dv = NULL;
+  BIGNUM *rem = NULL;
+
+  // these binary numbers will be converted into Openssl Big Number format
+  const unsigned char bin58 = 58;
+
+  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(dv = BN_new()) || !(rem = BN_new()))
+    printf("Unable to create big numbers for b58 encode");
+
+  // Convert 58, 0 and msg into Big Numbers
+  BN_bin2bn(&bin58, 1, bn58);
+
+  if (!BN_zero(bn0))
+    printf("Unable to set BIGNUM 0");
+
+  BN_bin2bn(msg, msg_len, bn_msg);
+  
+  // Copy BIGNUMBER representation of message into dv
+
+  if (!BN_copy(dv, bn_msg))
+    error("Unable to copy bn_msg to dv\n");
+
+  // Create remainder variable as a char
+  char unsigned bin_rem = 0; 
+
+  unsigned char *str = malloc(sizeof(char) * BASE58_LEN);
+  // while bn_msg as x > 0  divide x by 58
+  int i = BASE58_LEN -1;
+  // create null terminated string
+  str[i--] = '\0';
+  while (BN_cmp(dv, bn0) > 0) {
+    if (!BN_div(dv, rem, dv, bn58, ctx))
+      error("Unable to perform BIGNUM division");
+
+    if (BN_bn2bin(rem, &bin_rem) < 1) // if length of bytes written to bin_rem < 1 something's wrong!
+      error("Unable to write BIGNUM to binary\n");
+
+    str[i--] = b58[bin_rem]; 
+  }
+
+  // Replace leading zeros in msg hash with the b58 representation of a zero
+  int yes = 0; 
+  do {
+    str[i] = b58[0];
+    yes = (*msg && *msg++ == '0');
+  } while (yes && i--); 
+  *ret_len = i;
+
+  BN_CTX_end(ctx);
+  BN_CTX_free(ctx);
+
+  return str;
 }
