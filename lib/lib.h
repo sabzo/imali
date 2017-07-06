@@ -227,7 +227,6 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
   BN_bin2bn(msg, msg_len, bn_msg);
   
   // Copy BIGNUMBER representation of message into dv
-
   if (!BN_copy(dv, bn_msg))
     error("Unable to copy bn_msg to dv\n");
 
@@ -240,11 +239,13 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
   // create null terminated string
   str[i--] = '\0';
   while (BN_cmp(dv, bn0) > 0) {
+    // printf("%lu / %lu = ", *dv->d, *bn58->d);
     if (!BN_div(dv, rem, dv, bn58, ctx))
       error("Unable to perform BIGNUM division");
 
-    if (BN_bn2bin(rem, &bin_rem) < 1) // if length of bytes written to bin_rem < 1 something's wrong!
-      error("Unable to write BIGNUM to binary\n");
+    // printf("dv %lu rem: %lu\n", *dv->d, *rem->d);
+
+    BN_bn2bin(rem, &bin_rem); 
 
     str[i--] = b58[bin_rem]; 
   }
@@ -255,7 +256,15 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
     str[i] = b58[0];
     yes = (*msg && *msg++ == '0');
   } while (yes && i--); 
+
+  // return offset
   *ret_len = i;
+  // FREE BIG NUMBER variables
+  BN_free(bn58);
+  BN_free(bn0);
+  BN_free(bn_msg);
+  BN_free(dv);
+  BN_free(rem);
 
   BN_CTX_end(ctx);
   BN_CTX_free(ctx);
