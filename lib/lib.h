@@ -195,7 +195,10 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   return ripemd160_digest;
 }
 
-unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
+/* Base58 Encode msg. Takes message, message length and returns the base58 encoded message. 
+   offset is the offset of from where the returned char* has real data 
+*/
+unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   // create context for BIGNUMBER operations
   BN_CTX *ctx = NULL;
 
@@ -209,13 +212,14 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
   BIGNUM *bn58 = NULL;
   BIGNUM *bn0 = NULL;
   BIGNUM *bn_msg = NULL;
-  BIGNUM *dv = NULL;
+  BIGNUM *bn_dv = NULL;
   BIGNUM *rem = NULL;
+  BIGNUM *temp = NULL;
 
   // these binary numbers will be converted into Openssl Big Number format
   const unsigned char bin58 = 58;
 
-  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(dv = BN_new()) || !(rem = BN_new()))
+  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(bn_dv = BN_new()) || !(rem = BN_new()) || !(temp = BN_new()))
     printf("Unable to create big numbers for b58 encode");
 
   // Convert 58, 0 and msg into Big Numbers
@@ -223,27 +227,29 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
 
   if (!BN_zero(bn0))
     printf("Unable to set BIGNUM 0");
-
-  BN_bin2bn(msg, msg_len, bn_msg);
   
-  // Copy BIGNUMBER representation of message into dv
-  if (!BN_copy(dv, bn_msg))
-    error("Unable to copy bn_msg to dv\n");
+  // Convert msg into a bignum to prepare for bignum division
+  BN_bin2bn(msg, msg_len, bn_dv);
 
-  // Create remainder variable as a char
-  char unsigned bin_rem = 0; 
+  char unsigned bin_rem = 0; // Create remainder variable as a char
+  int ldv, lrem;
 
-  unsigned char *str = malloc(sizeof(char) * BASE58_LEN);
-  // while bn_msg as x > 0  divide x by 58
+  unsigned char *str = malloc(sizeof(char) * BASE58_LEN); // output string
+
   int i = BASE58_LEN -1;
-  // create null terminated string
-  str[i--] = '\0';
-  while (BN_cmp(dv, bn0) > 0) {
-    // printf("%lu / %lu = ", *dv->d, *bn58->d);
-    if (!BN_div(dv, rem, dv, bn58, ctx))
+
+  str[i--] = '\0'; // create null terminated string
+
+  // while bn_msg as x > 0  divide x by 58
+  while (BN_cmp(bn_dv, bn0) > 0) {
+    if (!BN_copy(temp, bn_dv))
+      error("unable to copy bn_dv to temp");
+
+     // printf("%lu / %lu = ", *temp->d, *bn58->d);
+    if (!BN_div(bn_dv, rem, temp, bn58, ctx))
       error("Unable to perform BIGNUM division");
 
-    // printf("dv %lu rem: %lu\n", *dv->d, *rem->d);
+     // printf("bn_dv %lu rem: %lu\n", *bn_dv->d, *rem->d);
 
     BN_bn2bin(rem, &bin_rem); 
 
@@ -258,12 +264,13 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *ret_len) {
   } while (yes && i--); 
 
   // return offset
-  *ret_len = i;
+  *offset= i;
+
   // FREE BIG NUMBER variables
   BN_free(bn58);
   BN_free(bn0);
   BN_free(bn_msg);
-  BN_free(dv);
+  BN_free(bn_dv);
   BN_free(rem);
 
   BN_CTX_end(ctx);
