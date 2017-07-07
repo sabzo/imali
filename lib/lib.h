@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <openssl/evp.h>
@@ -232,7 +233,6 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   BN_bin2bn(msg, msg_len, bn_dv);
 
   char unsigned bin_rem = 0; // Create remainder variable as a char
-  int ldv, lrem;
 
   unsigned char *str = malloc(sizeof(char) * BASE58_LEN); // output string
 
@@ -261,6 +261,8 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   do {
     str[i] = b58[0];
     yes = (*msg && *msg++ == '0');
+    if (yes)
+      printf("has leading zero\n");
   } while (yes && i--); 
 
   // return offset
@@ -278,3 +280,49 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
 
   return str;
 }
+
+/* Find position of character in string str. Searches up to len length or when \0 is encountered */
+int strpos(const char c, const char *str, int len) {
+  int pos = 0;
+  while (*(str + pos)) {
+   if ( *(str + pos) == c) 
+     return pos;
+   pos++;
+  }
+  return -1;
+}
+    
+/* Decode base58 string into decimal */
+// TODO
+unsigned char *mbase58Decode(const char *msg, int msg_sz, int *ret_len) {
+  char b10[] = "0123456789";   
+
+  BN_CTX *ctx = NULL;
+  if ((ctx = BN_CTX_new()) == NULL) {
+    printf("Unable to to create BN CTX\n");
+    exit(1);
+  }
+  BN_CTX_start(ctx);
+  
+  BIGNUM *total = BN_new();
+  BIGNUM *temp = BN_new();
+
+  unsigned char *str = calloc(msg_sz, sizeof(char));
+  
+  for (int i = 0; i < msg_sz; i++) {
+    const char *c =  msg + i;
+    if (*c) {
+      double num = (double) strpos(*c, b58, 58);
+      double exponent = (double) (msg_sz - 1 - i);
+      int mult_by = pow(58, exponent);
+    }
+  }
+  
+  BN_free(total);
+  BN_free(temp);
+
+  BN_CTX_end(ctx);
+  BN_CTX_free(ctx);
+  return str;
+}
+

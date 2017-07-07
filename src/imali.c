@@ -45,8 +45,9 @@ int main() {
   addr = mget_address(ec_key, &digest_len);
 
   printf("Address: \n");
-  for (int i = 0; i < digest_len; i++)
+  for (int i = 0; i < digest_len; i++) {
        printf("%02x", addr[i]);
+  }
   printf("\nDigest Length: %d\n", digest_len);
   
   unsigned char *checksum = NULL;
@@ -64,8 +65,13 @@ int main() {
   }
 
   int b58l = 0;
-  const unsigned char *hash = mb58Encode(addr, digest_len, &b58l);
+  unsigned char h[] = "hello";
+  const unsigned char *hash = mb58Encode(h, 5, &b58l);//addr, digest_len, &b58l);
+  printf("hello in b58: %s\n", hash + b58l);
+
+  hash = mb58Encode(addr, digest_len, &b58l);
   printf("addr b58: %s\n", hash + b58l);
+
   free(hash);
   return 0;
 }
