@@ -292,11 +292,8 @@ int strpos(const char c, const char *str, int len) {
   return -1;
 }
     
-/* Decode base58 string into decimal */
-// TODO
+/*  base58 string into decimal */
 unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len) {
-  char b10[] = "0123456789";   
-
   BN_CTX *ctx = NULL;
   if ((ctx = BN_CTX_new()) == NULL) {
     printf("Unable to to create BN CTX\n");
@@ -311,10 +308,10 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   BIGNUM *temp = BN_new();
   BIGNUM *bn58 = BN_new();
   BIGNUM *bnexp = BN_new();
+
   const unsigned char ch58 =  58;
   unsigned char chexp = 0; // assumes size of exponent < 255
-
-  unsigned char *str = calloc(msg_sz, sizeof(char));
+  unsigned char *str =  NULL;
   
   // (num  * 58 ^ exp) + (num * 58 ^ exp-1) ... + (num * 58 ^ epx-n)
   for (unsigned char i = 0; i < msg_sz; i++) {
@@ -328,7 +325,7 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
       const unsigned char num = strpos(*c, b58, 58);
       // convert num to a temporary BIG NUM variable. 
       BN_bin2bn(&num, 1, bn_num);
-      // raise 58 to exponent
+      // raise 58 to exponentj
       BN_exp(temp, bn58, bnexp, ctx);
       // subtotal = num * temp 
       BN_mul(subtotal, bn_num, temp, ctx);
@@ -336,12 +333,22 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
       BN_add(total, total, subtotal);
     }
   }
+  // Allocate char const * large enough to store BIGNUMBER 
+  unsigned int bytes = BN_num_bytes(total);
+  str = malloc(bytes);
+  // Convert BIGNUMBER total into binary: unsigned char *
+  if ((*ret_len = BN_bn2bin(total, str)) == 0) 
+     error ("Wrote zero bytes when converting BIGNUM total to str char *");
+
   
+  BN_free(subtotal);
   BN_free(total);
   BN_free(temp);
-
+  BN_free(bn_num);
+  BN_free(bn58);
+  BN_free(bnexp);
+ 
   BN_CTX_end(ctx);
   BN_CTX_free(ctx);
   return str;
 }
-
