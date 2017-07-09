@@ -253,16 +253,19 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
 
     BN_bn2bin(rem, &bin_rem); 
 
-    str[i--] = b58[bin_rem]; 
+    str[i--] = b58[bin_rem];  // TODO: remove extra decrement
   }
+
+  i++; // sloppy fix of extra decrement from above while loop
 
   // Replace leading zeros in msg hash with the b58 representation of a zero
   int yes = 0; 
   do {
-    str[i] = b58[0];
     yes = (*msg && *msg++ == '0');
-    if (yes)
+    if (yes) {
+      str[i] = b58[0];
       printf("has leading zero\n");
+    }
   } while (yes && i--); 
 
   // return offset
