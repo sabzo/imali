@@ -72,6 +72,7 @@ int main() {
   hash = mb58Encode(addr, digest_len, &b58l);
   printf("addr b58: %s\n", hash + b58l);
 
+  unsigned char *hp = mbase58Decode(hash, b58l, &b58l);   
   free(hash);
   return 0;
 }

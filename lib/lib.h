@@ -294,7 +294,7 @@ int strpos(const char c, const char *str, int len) {
     
 /* Decode base58 string into decimal */
 // TODO
-unsigned char *mbase58Decode(const char *msg, int msg_sz, int *ret_len) {
+unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len) {
   char b10[] = "0123456789";   
 
   BN_CTX *ctx = NULL;
@@ -304,17 +304,36 @@ unsigned char *mbase58Decode(const char *msg, int msg_sz, int *ret_len) {
   }
   BN_CTX_start(ctx);
   
+  BIGNUM *subtotal = BN_new();
   BIGNUM *total = BN_new();
+  BN_zero(total); // zero initialize total
+  BIGNUM *bn_num = BN_new();
   BIGNUM *temp = BN_new();
+  BIGNUM *bn58 = BN_new();
+  BIGNUM *bnexp = BN_new();
+  const unsigned char ch58 =  58;
+  unsigned char chexp = 0; // assumes size of exponent < 255
 
   unsigned char *str = calloc(msg_sz, sizeof(char));
   
-  for (int i = 0; i < msg_sz; i++) {
-    const char *c =  msg + i;
+  // (num  * 58 ^ exp) + (num * 58 ^ exp-1) ... + (num * 58 ^ epx-n)
+  for (unsigned char i = 0; i < msg_sz; i++) {
+    const unsigned char *c =  msg + i;
     if (*c) {
-      double num = (double) strpos(*c, b58, 58);
-      double exponent = (double) (msg_sz - 1 - i);
-      int mult_by = pow(58, exponent);
+      // Convert 58 as a char to 58 as a BIGNUMBER
+      BN_bin2bn(&ch58, 1, bn58);
+      chexp = (msg_sz - 1 - i);
+      // convert the char exponent to a BIGNUMBER
+      BN_bin2bn(&chexp, 1, bnexp);
+      const unsigned char num = strpos(*c, b58, 58);
+      // convert num to a temporary BIG NUM variable. 
+      BN_bin2bn(&num, 1, bn_num);
+      // raise 58 to exponent
+      BN_exp(temp, bn58, bnexp, ctx);
+      // subtotal = num * temp 
+      BN_mul(subtotal, bn_num, temp, ctx);
+      //total = total + subtotal 
+      BN_add(total, total, subtotal);
     }
   }
   
