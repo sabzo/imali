@@ -234,11 +234,9 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
 
   char unsigned bin_rem = 0; // Create remainder variable as a char
 
-  unsigned char *str = malloc(sizeof(char) * BASE58_LEN); // output string
+  unsigned char *str = calloc(BASE58_LEN, 1); // output string
 
   int i = BASE58_LEN -1;
-
-  str[i--] = '\0'; // create null terminated string
 
   // while bn_msg as x > 0  divide x by 58
   while (BN_cmp(bn_dv, bn0) > 0) {
@@ -253,15 +251,16 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
 
     BN_bn2bin(rem, &bin_rem); 
 
-    str[i--] = b58[bin_rem];  // TODO: remove extra decrement
+    str[--i] = b58[bin_rem];  // TODO: remove extra decrement
   }
-
-  i++; // sloppy fix of extra decrement from above while loop
 
   // Replace leading zeros in msg hash with the b58 representation of a zero
   int yes = 0; 
   do {
-    yes = (*msg && *msg++ == '0');
+    //printf("msg[0] %x\n", msg[0]);
+    yes = (*msg && *msg == 0);
+
+    msg++;
     if (yes) {
       str[i] = b58[0];
       printf("has leading zero\n");
@@ -338,7 +337,7 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   }
   // Allocate char const * large enough to store BIGNUMBER 
   unsigned int bytes = BN_num_bytes(total);
-  str = malloc(bytes);
+  str = calloc(bytes + 1, 1);// null terminate string incase wanting to print
   // Convert BIGNUMBER total into binary: unsigned char *
   if ((*ret_len = BN_bn2bin(total, str)) == 0) 
      error ("Wrote zero bytes when converting BIGNUM total to str char *");
@@ -355,3 +354,5 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   BN_CTX_free(ctx);
   return str;
 }
+
+
