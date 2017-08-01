@@ -19,8 +19,11 @@ void error(char *msg) {
   exit(1);
 }
 
-/* 256 bit string */
-void random_256bit_string(unsigned char msg[32]) {
+/* 
+ * Generate cryptographically secure random 256 bit string 
+ * Accept a pointer to a char buffer large enough to store 256 bits
+ */
+void random_256bit_string(unsigned char *msg) {
   int fd;
   int n_read;
 
@@ -34,7 +37,9 @@ void random_256bit_string(unsigned char msg[32]) {
   close(fd);
 }
 
-/* Generate A public Key from a 256 bit private key */
+/* Generate A public Key from a 256 bit private key
+ * Accepts a pointer to a char buffer which is a 256-bit private key
+ */
 EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   // structures needed for ECC
   EC_KEY *ec_key = 0;
@@ -80,6 +85,9 @@ EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   return ec_key;
 }
 
+/* Create a public-key and private-key pair on the secp256k1 Elliptic curve (used by Bitcoin)
+ * This returns an OpenSSL EC_KEY structure used to access the generated public/private keys
+ */
 EC_KEY *init_priv_pub_key_pair() {
   EC_KEY *ec_key;
   ec_key = EC_KEY_new_by_curve_name(NID_secp256k1);
@@ -130,7 +138,10 @@ if ((mdctx = EVP_MD_CTX_create()) == NULL)
   EVP_MD_CTX_destroy(mdctx);
 }
 
-/* return (sha256(payload)) [first n bytes] */
+/* Returns an encoded checksum. 
+ * Goal is to pass in base58 string then return a few bytes of that string to act as a checksum
+ * Return: (sha256(payload)) [first n bytes]
+ */
 unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *payload, int size_payload, int bytes_return) {
   // Create a char array to fit both version number + payload
   int size_msg = sizeof(char) * 2  + sizeof(char) * size_payload;
@@ -162,8 +173,11 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
   return result;
 }
 
-/* Generate Address from Public Key & allocate memory */
-// A = RIPEMID(160(SHA256(K)))
+/* Generate Address from Public Key
+ * The address becomes a double hash of the public key such that: A = RIPEMID(160(SHA256(K)))
+ * Accepts (1) EC_KEY, (2) unsigned int, returned to the caller,
+ * representing the size of the digest (Address generated) 
+ */
 unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
   const EC_GROUP *group = NULL; 
@@ -197,7 +211,12 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
 }
 
 /* Base58 Encode msg. Takes message, message length and returns the base58 encoded message. 
-   offset is the offset of from where the returned char* has real data 
+ * The "offset" is needed to notify the user where in the array does the data begin.
+ * In other words what address to start at.
+ * This allows the ability of not having to know in advance what the length of the 
+ * base58 encoded message will be.
+ * if array x looks like this [NULL, NULL, value, value, value] the offset will be two 
+ * for ex: printf("%s\n", x+2);
 */
 unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   // create context for BIGNUMBER operations
@@ -295,7 +314,10 @@ int strpos(const char c, const char *str, int len) {
   return -1;
 }
     
-/*  base58 string into decimal */
+/* Convert a base58 string into a binary number.
+ * Binary number maybe larger than can be represented by a data type.
+ * Returned value is a char buffer
+*/
 unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len) {
   BN_CTX *ctx = NULL;
   if ((ctx = BN_CTX_new()) == NULL) {
@@ -355,3 +377,5 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   BN_CTX_free(ctx);
   return str;
 }
+
+
