@@ -118,13 +118,21 @@ char *pub_key_hex(EC_KEY *ec_key) {
   return EC_POINT_point2hex(get_group(ec_key), get_public_key(ec_key), form, NULL);
 }
 
+/* Digest a Message using a given Hash function
+ * hash(void) is the hash algorithm to use, 
+ * msg is the message to digest,
+ * msg_len is msg's length
+ * digest is the address to which to save the digest
+ * digest_len is the length of the digest
+ *
+ * */
 void digest_message(const EVP_MD* (*hash)(void), const unsigned char *msg, size_t msg_len, unsigned char **digest, unsigned int *digest_len) {
   EVP_MD_CTX *mdctx;
 if ((mdctx = EVP_MD_CTX_create()) == NULL)
     error("EVP_MD_CTX_create()");
 
   if (EVP_DigestInit_ex(mdctx, hash(), NULL) != 1) 
-    error("initializing msg context by initializing SHA256 algorithm");
+    error("initializing msg context by initializing hash  algorithm");
 
   if (EVP_DigestUpdate(mdctx, msg, msg_len) != 1)
     error("Message Digest Update");
@@ -159,7 +167,7 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
     msg[i++] = payload[j++];
 
   unsigned int size_midresult; // size of intermediate result
-  unsigned char *midresult= NULL;
+  unsigned char *midresult = NULL;
   unsigned char *result = malloc(sizeof(char) * 4);
 
   // Double SHA 256
@@ -378,4 +386,36 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   return str;
 }
 
+/* 
+ * The following functions are for a Heiarchichal Determenistic Wallet 
+*/
+
+/* Mneumonic representation of a string
+ * */
+unsigned char *mHDW_seed_key_create(void) {
+   // Create random 256 bit string 
+   // 32 + 1 byte for checksum
+  unsigned char *rand_seq = calloc(33, 1);
+  unsigned int size_rand_seq = 33;
+  unsigned char *checksum = NULL;
+  unsigned int size_checksum;
+ 
+  random_256bit_string(rand_seq);
+  // checksum
+  digest_message(EVP_sha256, rand_seq, size_rand_seq, &checksum, &size_checksum);
+  // add first byte of checksum to msg
+  rand_seq[32] = checksum[0];
+  free(checksum);
+  return rand_seq;
+}
+
+/* Create mneumonic list of words used to represent a key to a deterministic wallet */
+char *HDW_key_mnemonic(char adf) {
+ return NULL;    
+}
+
+// Create generating seed (Master key) for HD wallet and return a string
+char *hd_wallet_init() {
+   return NULL;
+} 
 

@@ -80,7 +80,7 @@ int main() {
   // Base 58 Encoding
   printf("base58Encoding test ... \n");
   unsigned char h[] = "hello";
-  const unsigned char *hash = mb58Encode(h, 5, &offset);//addr, digest_len, &b58l);
+  unsigned char *hash = mb58Encode(h, 5, &offset);//addr, digest_len, &b58l);
   printf("hello in b58: %s\n", hash + offset);
 
   hash = mb58Encode(addr, digest_len, &offset);
@@ -101,5 +101,12 @@ int main() {
   
   free(hp);
   free(hash);
+  
+  /* Test HDW */
+  printf("Generate seed for HDwallet: \n");
+  unsigned char *seed = mHDW_seed_key_create();
+  for (int i = 0; i < 32; i++)
+      printf("%x", seed[i]);
+  printf("\n");
   return 0;
 }
