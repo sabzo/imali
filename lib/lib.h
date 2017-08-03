@@ -418,39 +418,33 @@ char **mWords_from_file(char *mnemonic_words_file) {
 
   char **words = malloc(2048);
   if (!words) error("Unable to allocate memory for mnemonic words");
+  
+  FILE *stream;
+  char *line = NULL;
+  char *w = NULL;
+  size_t len = 0;
+  ssize_t read;
+  int w_counter = 0;
 
-  unsigned char word_len = 15;
-  char buffer[4096];
-  int buffer_size = 4096;
-  int buffer_pos = 0;
-  int w_counter = 0; // word counter
-  int l_counter = 0; // length counter
-  int num_read = 0; // num bytes read
-  int fd;
+  if ((stream = fopen(mnemonic_words_file, "r")) == NULL)
+    error("Unable to open mnemonic words file"); 
 
-  if ((fd = open(mnemonic_words_file, O_RDONLY, 0)) != -1) {
-    // read newline and store into words[i]
-    while ((num_read = read(fd, buffer, buffer_size)) > 0) {
-      while (buffer_pos < num_read) {
-        // store new word
-        words[w_counter] = calloc(word_len + 1, 1);
-        while(l_counter < word_len && buffer_pos < num_read) {
-          // if encounted newline, move buffer pos and break
-          if (buffer[buffer_pos] == '\n') {
-            buffer_pos++;
-            break;
-          }
-          words[w_counter][l_counter++] = buffer[buffer_pos++];
-        }       
-        l_counter = 0;
-        w_counter++;
-        printf("w_counter %d\n", w_counter);
-      }
-      buffer_pos = 0;
-    }
-  } else error("Unable to open mnemonic words file"); 
+  while ((read = getline(&line, &len, stream)) != -1) {
+    printf("read: %d, len %d, line: %s\n", read, len, line);
+    if ((w = malloc(read)) == NULL)
+        error("Unable to allocate space for word");
+    words[w_counter] = w;
+    line[read -1] = '\0';
+    strcpy(w, line);
+    len = 0;
+    line = NULL;
+    w_counter++;
+  }
 
- return words; 
+  printf("wcounter %d\n", w_counter);
+  free(line);
+  fclose(stream);
+  return words; 
 }
 /* Create mnemonic list of words, delimited by a space, used to represent a key to a deterministic wallet */
 char *HDW_key_mnemonic(char adf) {
