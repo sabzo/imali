@@ -189,7 +189,7 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
 unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
   const EC_GROUP *group = NULL; 
-  EC_POINT *pub = NULL;
+  const EC_POINT *pub = NULL;
   point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
   BIGNUM *bn_pub = NULL;
   BN_CTX *ctx = NULL; // Not planning to use BN context for dealing with multiple big nubmers
@@ -212,7 +212,7 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   digest_message(EVP_ripemd160, sha256_digest, size_bin_pub, &ripemd160_digest, size_digest); 
  
    // EVP_sha256
-  EC_POINT_free(pub);
+  EC_POINT_free((void *) pub);
   free(bin_pub);
 
   return ripemd160_digest;
@@ -409,9 +409,52 @@ unsigned char *mHDW_seed_key_create(void) {
   return rand_seq;
 }
 
-/* Create mneumonic list of words used to represent a key to a deterministic wallet */
+/* Read words from File to a char ** buffer.
+ * Helper method for mnemonic function. Saves words into a char *[2048]
+ */
+char **mWords_from_file(char *mnemonic_words_file) {
+  if (!mnemonic_words_file)
+      mnemonic_words_file = "english_mnemonic.txt";
+
+  char **words = malloc(2048);
+  if (!words) error("Unable to allocate memory for mnemonic words");
+
+  unsigned char word_len = 15;
+  char buffer[4096];
+  int buffer_size = 4096;
+  int buffer_pos = 0;
+  int w_counter = 0; // word counter
+  int l_counter = 0; // length counter
+  int num_read = 0; // num bytes read
+  int fd;
+
+  if ((fd = open(mnemonic_words_file, O_RDONLY, 0)) != -1) {
+    // read newline and store into words[i]
+    while ((num_read = read(fd, buffer, buffer_size)) > 0) {
+      while (buffer_pos < num_read) {
+        // store new word
+        words[w_counter] = calloc(word_len + 1, 1);
+        while(l_counter < word_len && buffer_pos < num_read) {
+          // if encounted newline, move buffer pos and break
+          if (buffer[buffer_pos] == '\n') {
+            buffer_pos++;
+            break;
+          }
+          words[w_counter][l_counter++] = buffer[buffer_pos++];
+        }       
+        l_counter = 0;
+        w_counter++;
+        printf("w_counter %d\n", w_counter);
+      }
+      buffer_pos = 0;
+    }
+  } else error("Unable to open mnemonic words file"); 
+
+ return words; 
+}
+/* Create mnemonic list of words, delimited by a space, used to represent a key to a deterministic wallet */
 char *HDW_key_mnemonic(char adf) {
- return NULL;    
+  return NULL;     
 }
 
 // Create generating seed (Master key) for HD wallet and return a string

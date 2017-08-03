@@ -89,7 +89,7 @@ int main() {
   // Decoding
   printf("Test decoding Base58...\n"); 
   int ret_len = 0;
-  unsigned char *hp = mbase58Decode(hash + offset, strlen(hash + offset), &ret_len);   
+  unsigned char *hp = mbase58Decode(hash + offset, BASE58_LEN - 1 - offset, &ret_len); // - 1 because string is null terminated  
   printf("Size of Address mbase58 Decoded string is: %d\n", ret_len);
 
   // Decoded Address
@@ -108,5 +108,13 @@ int main() {
   for (int i = 0; i < 32; i++)
       printf("%x", seed[i]);
   printf("\n");
+ 
+  /* Get mnemonic words array */
+  char **words = mWords_from_file(NULL);  
+  for (int i = 0; i < 2048; i++) {
+      printf("%s\n", words[i]);
+  }
+
+  free(words);
   return 0;
 }
