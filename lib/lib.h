@@ -416,7 +416,7 @@ char **mWords_from_file(char *mnemonic_words_file) {
   if (!mnemonic_words_file)
       mnemonic_words_file = "english_mnemonic.txt";
 
-  char **words = malloc(2048);
+  char **words = malloc(2048 * sizeof(char*));
   if (!words) error("Unable to allocate memory for mnemonic words");
   
   FILE *stream;
@@ -436,8 +436,6 @@ char **mWords_from_file(char *mnemonic_words_file) {
     words[w_counter] = w;
     line[read -1] = '\0';
     strcpy(w, line);
-    len = 0;
-    line = NULL;
     w_counter++;
   }
 
