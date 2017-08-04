@@ -115,6 +115,6 @@ int main() {
       printf("%s\n", words[i]);
   }
 
-  free(words);
+  //free(words);
   return 0;
 }
