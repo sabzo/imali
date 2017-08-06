@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <openssl/evp.h>
@@ -390,7 +389,8 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
  * The following functions are for a Heiarchichal Determenistic Wallet 
 */
 
-/* Mneumonic representation of a string
+/* Create a Seed to be used for HDwallet generation
+ * Returns 33 byte char 
  * */
 unsigned char *mHDW_seed_key_create(void) {
    // Create random 256 bit string 
@@ -430,7 +430,6 @@ char **mWords_from_file(char *mnemonic_words_file) {
     error("Unable to open mnemonic words file"); 
 
   while ((read = getline(&line, &len, stream)) != -1) {
-    printf("read: %d, len %d, line: %s\n", read, len, line);
     if ((w = malloc(read)) == NULL)
         error("Unable to allocate space for word");
     words[w_counter] = w;
@@ -439,14 +438,34 @@ char **mWords_from_file(char *mnemonic_words_file) {
     w_counter++;
   }
 
-  printf("wcounter %d\n", w_counter);
   free(line);
   fclose(stream);
   return words; 
 }
+
+int deserialize_bits(unsigned char* buffer, int n, int bit_offset) {
+    int num = 0;
+    for (int i = 0; i < n; i++) {
+          int byte_idx = (i + bit_offset) / 8; // or >> 3
+            int bit_idx = (i + bit_offset) % 8; // or & 7
+              num |= ((buffer[byte_idx] >> bit_idx) & 1) << i;
+              }
+    return num;
+}  
 /* Create mnemonic list of words, delimited by a space, used to represent a key to a deterministic wallet */
-char *HDW_key_mnemonic(char adf) {
-  return NULL;     
+char **mHDW_key_mnemonic() {
+  unsigned char *seed = mHDW_seed_key_create();
+  char **word_choice = mWords_from_file(NULL);
+  char **phrase = malloc(11 * sizeof(char *)); 
+  int num_bits = 11;
+  int bit_offset = 11;
+  // get num from seed bits
+  for (int i = 0; i < 24; i++) {
+    int num = deserialize_bits(seed, num_bits, bit_offset * i); 
+    phrase[i] = word_choice[num];
+  }
+   
+  return phrase;     
 }
 
 // Create generating seed (Master key) for HD wallet and return a string

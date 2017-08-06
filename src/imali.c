@@ -111,10 +111,10 @@ int main() {
  
   /* Get mnemonic words array */
   char **words = mWords_from_file(NULL);  
-  for (int i = 0; i < 2048; i++) {
-      printf("%s\n", words[i]);
-  }
+  free(words);
 
-  //free(words);
+  char **phrase = mHDW_key_mnemonic();
+  for(int i = 0; i < 11; i++) 
+      printf("%s ", phrase[i]);
   return 0;
 }
