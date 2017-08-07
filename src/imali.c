@@ -117,12 +117,20 @@ int main() {
   free(words);
 
   char **phrase = mHDW_key_mnemonic();
-  phrase = mHDW_key_mnemonic();
   for(int i = 0; i < 24; i++) 
       printf("%s ", phrase[i]);
 
   // HD Wallet init
   HDWKey hdw_key = {};
-  //HDW_init(&hdw_key);
+  HDW_init(&hdw_key);
+  
+
+  printf("Master Chain Code: \n");
+  for (int i = 0; i < 256; i++)
+      printf("%x", hdw_key.master_chain_code[i]);
+  printf("\n");
+  free(ec_key);
+  free(eck2);
+
   return 0;
 }

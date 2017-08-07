@@ -484,19 +484,21 @@ char **mHDW_key_mnemonic() {
 
 // Create generating seed (Master key) for HD wallet and return a string
 void HDW_init(HDWKey *hdw_key) {
-  //hdw_key->
-  unsigned char *seed = mHDW_seed_key_create();
+  hdw_key->seed = mHDW_seed_key_create();
   unsigned char *seed_digest = NULL;
   unsigned char *master_private_key = NULL;
   size_t seed_size = 33; // 264 bytes
   unsigned int size_digest = 0; // final size of digest
 
-  digest_message(EVP_sha512, seed, seed_size, &seed_digest, &size_digest); 
+  digest_message(EVP_sha512, hdw_key->seed, seed_size, &seed_digest, &size_digest); 
   // set master private key to 1st 256 bits of seed digest
   master_private_key = seed_digest;
   // set master public key in EC_KEY structure
   hdw_key->ec_key = gen_pub_key_from_priv_key(master_private_key);
   // set master chain code to last 256 bits of seed digest
-  hdw_key->master_chain_code = seed_digest + 256;
+  hdw_key->master_chain_code = malloc(32);
+  for (int i = 0; i < 32; i++)
+      hdw_key->master_chain_code[i] = *(seed_digest + 32 + i);
+  free(seed_digest);
 } 
 
