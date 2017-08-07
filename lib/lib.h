@@ -184,6 +184,7 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
  * The address becomes a double hash of the public key such that: A = RIPEMID(160(SHA256(K)))
  * Accepts (1) EC_KEY, (2) unsigned int, returned to the caller,
  * representing the size of the digest (Address generated) 
+ * size_digest will the value set after the digest is created
  */
 unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
@@ -389,6 +390,12 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
  * The following functions are for a Heiarchichal Determenistic Wallet 
 */
 
+typedef struct HDWKey {
+  EC_KEY *ec_key;
+  unsigned char *seed;
+  unsigned char *master_chain_code;
+} HDWKey;
+
 /* Create a Seed to be used for HDwallet generation
  * Returns 33 byte char 
  * */
@@ -396,11 +403,11 @@ unsigned char *mHDW_seed_key_create(void) {
    // Create random 256 bit string 
    // 32 + 1 byte for checksum
   unsigned char *rand_seq = calloc(33, 1);
+  random_256bit_string(rand_seq);
   unsigned int size_rand_seq = 33;
   unsigned char *checksum = NULL;
   unsigned int size_checksum;
  
-  random_256bit_string(rand_seq);
   // checksum
   digest_message(EVP_sha256, rand_seq, size_rand_seq, &checksum, &size_checksum);
   // add first byte of checksum to msg
@@ -446,30 +453,50 @@ char **mWords_from_file(char *mnemonic_words_file) {
 int deserialize_bits(unsigned char* buffer, int n, int bit_offset) {
     int num = 0;
     for (int i = 0; i < n; i++) {
-          int byte_idx = (i + bit_offset) / 8; // or >> 3
-            int bit_idx = (i + bit_offset) % 8; // or & 7
-              num |= ((buffer[byte_idx] >> bit_idx) & 1) << i;
-              }
+      int byte_idx = (i + bit_offset) / 8; // or >> 3
+      int bit_idx = (i + bit_offset) % 8; // or & 7
+      num |= ((buffer[byte_idx] >> bit_idx) & 1) << i;
+    }
     return num;
 }  
 /* Create mnemonic list of words, delimited by a space, used to represent a key to a deterministic wallet */
 char **mHDW_key_mnemonic() {
   unsigned char *seed = mHDW_seed_key_create();
   char **word_choice = mWords_from_file(NULL);
-  char **phrase = malloc(11 * sizeof(char *)); 
+  char **phrase = malloc(24 * sizeof(char *)); 
   int num_bits = 11;
   int bit_offset = 11;
+  char *word = NULL;
   // get num from seed bits
   for (int i = 0; i < 24; i++) {
     int num = deserialize_bits(seed, num_bits, bit_offset * i); 
-    phrase[i] = word_choice[num];
+    word = word_choice[num];
+    phrase[i] = malloc(strlen(word));
+    strcpy(phrase[i], word); 
   }
-   
+  free(seed); 
+  // free words array of array
+  for (int i = 0; i < 2048; i++) 
+      free(word_choice[i]);
+  free(word_choice);
   return phrase;     
 }
 
 // Create generating seed (Master key) for HD wallet and return a string
-char *hd_wallet_init() {
-   return NULL;
+void HDW_init(HDWKey *hdw_key) {
+  //hdw_key->
+  unsigned char *seed = mHDW_seed_key_create();
+  unsigned char *seed_digest = NULL;
+  unsigned char *master_private_key = NULL;
+  size_t seed_size = 33; // 264 bytes
+  unsigned int size_digest = 0; // final size of digest
+
+  digest_message(EVP_sha512, seed, seed_size, &seed_digest, &size_digest); 
+  // set master private key to 1st 256 bits of seed digest
+  master_private_key = seed_digest;
+  // set master public key in EC_KEY structure
+  hdw_key->ec_key = gen_pub_key_from_priv_key(master_private_key);
+  // set master chain code to last 256 bits of seed digest
+  hdw_key->master_chain_code = seed_digest + 256;
 } 
 

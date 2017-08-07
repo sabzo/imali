@@ -111,10 +111,18 @@ int main() {
  
   /* Get mnemonic words array */
   char **words = mWords_from_file(NULL);  
+  int i = 0;
+  while (i < 2048)
+      free(words[i++]);
   free(words);
 
   char **phrase = mHDW_key_mnemonic();
-  for(int i = 0; i < 11; i++) 
+  phrase = mHDW_key_mnemonic();
+  for(int i = 0; i < 24; i++) 
       printf("%s ", phrase[i]);
+
+  // HD Wallet init
+  HDWKey hdw_key = {};
+  //HDW_init(&hdw_key);
   return 0;
 }
