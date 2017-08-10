@@ -509,15 +509,20 @@ void HDW_init(HDWKey *hdw_key) {
  * 32 bit int
 */
 void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char *chain_code, int index) {
-  unsigned char *seed = malloc(68); // public_key (32) + chain_code (32) + index (4) = 68
+  size_t seed_size = 68;
+  unsigned char *seed = malloc(seed_size); // public_key (32) + chain_code (32) + index (4) = 68
+  unsigned char *seed_digest = NULL;
+  unsigned int size_digest = 0; // final size of digest
+
   // copy public_key, chain_code, index into seed
   int i, j;
 
+  // Add private key + chain code into seed
   for (i = 0; i < 32; i++) {
     seed[i] = public_key[i];
     seed[i + 32] = chain_code[i];
   }
-  // copy int 4 bytes into 
+  // copy int 4 bytes into seed 
   for (i = 64, j = 3; j >= 0; j--) {
     int offset = 8 * j;
     // mask 8 bits << apply mask to offset of int index, shift bits to low order
@@ -526,14 +531,17 @@ void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char
     unsigned int applied_mask = index & offset_mask;
     unsigned int lsb = applied_mask >> offset; // least significant bytes
     seed[i++] = lsb; // store lsb  
-    printf("%d\n", seed[i-1]);
-
   }
 
-  for (int i = 64; i < 68; i++) 
-      printf("%d\n", seed[i]);
- 
- printf("\n"); 
+  digest_message(EVP_sha512, seed, seed_size, &seed_digest, &size_digest); 
+  // set master public key in EC_KEY structure
+  hdw->ec_key = gen_pub_key_from_priv_key(seed_digest); // will take 256 bits of seed digest
+  // set master chain code to last 256 bits of seed digest
+  hdw->master_chain_code = malloc(32);
+  for (int i = 0; i < 32; i++)
+      hdw->master_chain_code[i] = *(seed_digest + 32 + i);
 
+  free(seed);
+  free(seed_digest);
 }
 

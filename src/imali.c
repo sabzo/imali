@@ -134,9 +134,15 @@ int main() {
   prv = get_private_key(eck2);
 
   BN_bn2bin(prv, prv_str);
+  HDWKey hdw = {};
 
   printf("Getting Child Key\n");
-  HDW_derive_child_keys(NULL, pub_str, msg, 455);
+
+  HDW_derive_child_keys(&hdw, pub_str, msg, 455);
+  printf("Child Key Chain Code: \n");
+  for (int i = 0; i < 256; i++)
+      printf("%x", hdw_key.master_chain_code[i]);
+  printf("\n");
 
   free(ec_key);
   free(eck2);
