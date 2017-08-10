@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <openssl/evp.h>
@@ -19,8 +18,11 @@ void error(char *msg) {
   exit(1);
 }
 
-/* 256 bit string */
-void random_256bit_string(unsigned char msg[32]) {
+/* 
+ * Generate cryptographically secure random 256 bit string 
+ * Accept a pointer to a char buffer large enough to store 256 bits
+ */
+void random_256bit_string(unsigned char *msg) {
   int fd;
   int n_read;
 
@@ -34,7 +36,9 @@ void random_256bit_string(unsigned char msg[32]) {
   close(fd);
 }
 
-/* Generate A public Key from a 256 bit private key */
+/* Generate A public Key from a 256 bit private key
+ * Accepts a pointer to a char buffer which is a 256-bit private key
+ */
 EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   // structures needed for ECC
   EC_KEY *ec_key = 0;
@@ -80,6 +84,9 @@ EC_KEY *gen_pub_key_from_priv_key(unsigned char msg[32]) {
   return ec_key;
 }
 
+/* Create a public-key and private-key pair on the secp256k1 Elliptic curve (used by Bitcoin)
+ * This returns an OpenSSL EC_KEY structure used to access the generated public/private keys
+ */
 EC_KEY *init_priv_pub_key_pair() {
   EC_KEY *ec_key;
   ec_key = EC_KEY_new_by_curve_name(NID_secp256k1);
@@ -110,13 +117,21 @@ char *pub_key_hex(EC_KEY *ec_key) {
   return EC_POINT_point2hex(get_group(ec_key), get_public_key(ec_key), form, NULL);
 }
 
+/* Digest a Message using a given Hash function
+ * hash(void) is the hash algorithm to use, 
+ * msg is the message to digest,
+ * msg_len is msg's length
+ * digest is the address to which to save the digest
+ * digest_len is the length of the digest
+ *
+ * */
 void digest_message(const EVP_MD* (*hash)(void), const unsigned char *msg, size_t msg_len, unsigned char **digest, unsigned int *digest_len) {
   EVP_MD_CTX *mdctx;
 if ((mdctx = EVP_MD_CTX_create()) == NULL)
     error("EVP_MD_CTX_create()");
 
   if (EVP_DigestInit_ex(mdctx, hash(), NULL) != 1) 
-    error("initializing msg context by initializing SHA256 algorithm");
+    error("initializing msg context by initializing hash  algorithm");
 
   if (EVP_DigestUpdate(mdctx, msg, msg_len) != 1)
     error("Message Digest Update");
@@ -130,7 +145,10 @@ if ((mdctx = EVP_MD_CTX_create()) == NULL)
   EVP_MD_CTX_destroy(mdctx);
 }
 
-/* return (sha256(payload)) [first n bytes] */
+/* Returns an encoded checksum. 
+ * Goal is to pass in base58 string then return a few bytes of that string to act as a checksum
+ * Return: (sha256(payload)) [first n bytes]
+ */
 unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *payload, int size_payload, int bytes_return) {
   // Create a char array to fit both version number + payload
   int size_msg = sizeof(char) * 2  + sizeof(char) * size_payload;
@@ -148,7 +166,7 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
     msg[i++] = payload[j++];
 
   unsigned int size_midresult; // size of intermediate result
-  unsigned char *midresult= NULL;
+  unsigned char *midresult = NULL;
   unsigned char *result = malloc(sizeof(char) * 4);
 
   // Double SHA 256
@@ -162,12 +180,16 @@ unsigned char *mbase58EncodeChecksum(const short version, const unsigned char *p
   return result;
 }
 
-/* Generate Address from Public Key & allocate memory */
-// A = RIPEMID(160(SHA256(K)))
+/* Generate Address from Public Key
+ * The address becomes a double hash of the public key such that: A = RIPEMID(160(SHA256(K)))
+ * Accepts (1) EC_KEY, (2) unsigned int, returned to the caller,
+ * representing the size of the digest (Address generated) 
+ * size_digest will the value set after the digest is created
+ */
 unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   // Convert point to BN
   const EC_GROUP *group = NULL; 
-  EC_POINT *pub = NULL;
+  const EC_POINT *pub = NULL;
   point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
   BIGNUM *bn_pub = NULL;
   BN_CTX *ctx = NULL; // Not planning to use BN context for dealing with multiple big nubmers
@@ -190,14 +212,19 @@ unsigned char *mget_address(EC_KEY *ec_key, unsigned int *size_digest) {
   digest_message(EVP_ripemd160, sha256_digest, size_bin_pub, &ripemd160_digest, size_digest); 
  
    // EVP_sha256
-  EC_POINT_free(pub);
+  EC_POINT_free((void *) pub);
   free(bin_pub);
 
   return ripemd160_digest;
 }
 
 /* Base58 Encode msg. Takes message, message length and returns the base58 encoded message. 
-   offset is the offset of from where the returned char* has real data 
+ * The "offset" is needed to notify the user where in the array does the data begin.
+ * In other words what address to start at.
+ * This allows the ability of not having to know in advance what the length of the 
+ * base58 encoded message will be.
+ * if array x looks like this [NULL, NULL, value, value, value] the offset will be two 
+ * for ex: printf("%s\n", x+2);
 */
 unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   // create context for BIGNUMBER operations
@@ -295,7 +322,10 @@ int strpos(const char c, const char *str, int len) {
   return -1;
 }
     
-/*  base58 string into decimal */
+/* Convert a base58 string into a binary number.
+ * Binary number maybe larger than can be represented by a data type.
+ * Returned value is a char buffer
+*/
 unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len) {
   BN_CTX *ctx = NULL;
   if ((ctx = BN_CTX_new()) == NULL) {
@@ -355,3 +385,163 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   BN_CTX_free(ctx);
   return str;
 }
+
+/* 
+ * The following functions are for a Heiarchichal Determenistic Wallet 
+*/
+
+typedef struct HDWKey {
+  EC_KEY *ec_key;
+  unsigned char *seed;
+  unsigned char *master_chain_code;
+} HDWKey;
+
+/* Create a Seed to be used for HDwallet generation
+ * Returns 33 byte char 
+ * */
+unsigned char *mHDW_seed_key_create(void) {
+   // Create random 256 bit string 
+   // 32 + 1 byte for checksum
+  unsigned char *rand_seq = calloc(33, 1);
+  random_256bit_string(rand_seq);
+  unsigned int size_rand_seq = 33;
+  unsigned char *checksum = NULL;
+  unsigned int size_checksum;
+ 
+  // checksum
+  digest_message(EVP_sha256, rand_seq, size_rand_seq, &checksum, &size_checksum);
+  // add first byte of checksum to msg
+  rand_seq[32] = checksum[0];
+  free(checksum);
+  return rand_seq;
+}
+
+/* Read words from File to a char ** buffer.
+ * Helper method for mnemonic function. Saves words into a char *[2048]
+ */
+char **mWords_from_file(char *mnemonic_words_file) {
+  if (!mnemonic_words_file)
+      mnemonic_words_file = "english_mnemonic.txt";
+
+  char **words = malloc(2048 * sizeof(char*));
+  if (!words) error("Unable to allocate memory for mnemonic words");
+  
+  FILE *stream;
+  char *line = NULL;
+  char *w = NULL;
+  size_t len = 0;
+  ssize_t read;
+  int w_counter = 0;
+
+  if ((stream = fopen(mnemonic_words_file, "r")) == NULL)
+    error("Unable to open mnemonic words file"); 
+
+  while ((read = getline(&line, &len, stream)) != -1) {
+    if ((w = malloc(read)) == NULL)
+        error("Unable to allocate space for word");
+    words[w_counter] = w;
+    line[read -1] = '\0';
+    strcpy(w, line);
+    w_counter++;
+  }
+
+  free(line);
+  fclose(stream);
+  return words; 
+}
+
+int deserialize_bits(unsigned char* buffer, int n, int bit_offset) {
+    int num = 0;
+    for (int i = 0; i < n; i++) {
+      int byte_idx = (i + bit_offset) / 8; // or >> 3
+      int bit_idx = (i + bit_offset) % 8; // or & 7
+      num |= ((buffer[byte_idx] >> bit_idx) & 1) << i;
+    }
+    return num;
+}  
+/* Create mnemonic list of words, delimited by a space, used to represent a key to a deterministic wallet */
+char **mHDW_key_mnemonic() {
+  unsigned char *seed = mHDW_seed_key_create();
+  char **word_choice = mWords_from_file(NULL);
+  char **phrase = malloc(24 * sizeof(char *)); 
+  int num_bits = 11;
+  int bit_offset = 11;
+  char *word = NULL;
+  // get num from seed bits
+  for (int i = 0; i < 24; i++) {
+    int num = deserialize_bits(seed, num_bits, bit_offset * i); 
+    word = word_choice[num];
+    phrase[i] = malloc(strlen(word));
+    strcpy(phrase[i], word); 
+  }
+  free(seed); 
+  // free words array of array
+  for (int i = 0; i < 2048; i++) 
+      free(word_choice[i]);
+  free(word_choice);
+  return phrase;     
+}
+
+// Create generating seed (Master key) for HD wallet and return a string
+void HDW_init(HDWKey *hdw_key) {
+  hdw_key->seed = mHDW_seed_key_create();
+  unsigned char *seed_digest = NULL;
+  unsigned char *master_private_key = NULL;
+  size_t seed_size = 33; // 264 bytes
+  unsigned int size_digest = 0; // final size of digest
+
+  digest_message(EVP_sha512, hdw_key->seed, seed_size, &seed_digest, &size_digest); 
+  // set master private key to 1st 256 bits of seed digest
+  master_private_key = seed_digest;
+  // set master public key in EC_KEY structure
+  hdw_key->ec_key = gen_pub_key_from_priv_key(master_private_key);
+  // set master chain code to last 256 bits of seed digest
+  hdw_key->master_chain_code = malloc(32);
+  for (int i = 0; i < 32; i++)
+      hdw_key->master_chain_code[i] = *(seed_digest + 32 + i);
+  free(seed_digest);
+} 
+
+/* Derive Child keys from HD Wallet master private key and maste chain code
+ * hdw: will store new hd wallet structure
+ * public_key: 256 bit string
+ * chain_code: 256 bit string
+ * 32 bit int
+*/
+void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char *chain_code, int index) {
+  size_t seed_size = 68;
+  unsigned char *seed = malloc(seed_size); // public_key (32) + chain_code (32) + index (4) = 68
+  unsigned char *seed_digest = NULL;
+  unsigned int size_digest = 0; // final size of digest
+
+  // copy public_key, chain_code, index into seed
+  int i, j;
+
+  // Add private key + chain code into seed
+  for (i = 0; i < 32; i++) {
+    seed[i] = public_key[i];
+    seed[i + 32] = chain_code[i];
+  }
+  // copy int 4 bytes into seed 
+  for (i = 64, j = 3; j >= 0; j--) {
+    int offset = 8 * j;
+    // mask 8 bits << apply mask to offset of int index, shift bits to low order
+    unsigned int mask = ((1 << 8) -1); // create lenght of mask
+    unsigned int offset_mask = mask << offset;
+    unsigned int applied_mask = index & offset_mask;
+    unsigned int lsb = applied_mask >> offset; // least significant bytes
+    seed[i++] = lsb; // store lsb  
+  }
+
+  digest_message(EVP_sha512, seed, seed_size, &seed_digest, &size_digest); 
+  // set master public key in EC_KEY structure
+  hdw->ec_key = gen_pub_key_from_priv_key(seed_digest); // will take 256 bits of seed digest
+  // set master chain code to last 256 bits of seed digest
+  hdw->master_chain_code = malloc(32);
+  for (int i = 0; i < 32; i++)
+      hdw->master_chain_code[i] = *(seed_digest + 32 + i);
+
+  free(seed);
+  free(seed_digest);
+}
+
