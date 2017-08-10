@@ -502,3 +502,38 @@ void HDW_init(HDWKey *hdw_key) {
   free(seed_digest);
 } 
 
+/* Derive Child keys from HD Wallet master private key and maste chain code
+ * hdw: will store new hd wallet structure
+ * public_key: 256 bit string
+ * chain_code: 256 bit string
+ * 32 bit int
+*/
+void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char *chain_code, int index) {
+  unsigned char *seed = malloc(68); // public_key (32) + chain_code (32) + index (4) = 68
+  // copy public_key, chain_code, index into seed
+  int i, j;
+
+  for (i = 0; i < 32; i++) {
+    seed[i] = public_key[i];
+    seed[i + 32] = chain_code[i];
+  }
+  // copy int 4 bytes into 
+  for (i = 64, j = 3; j >= 0; j--) {
+    int offset = 8 * j;
+    // mask 8 bits << apply mask to offset of int index, shift bits to low order
+    unsigned int mask = ((1 << 8) -1); // create lenght of mask
+    unsigned int offset_mask = mask << offset;
+    unsigned int applied_mask = index & offset_mask;
+    unsigned int lsb = applied_mask >> offset; // least significant bytes
+    seed[i++] = lsb; // store lsb  
+    printf("%d\n", seed[i-1]);
+
+  }
+
+  for (int i = 64; i < 68; i++) 
+      printf("%d\n", seed[i]);
+ 
+ printf("\n"); 
+
+}
+

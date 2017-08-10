@@ -8,6 +8,7 @@ int main() {
   const EC_POINT *pub = NULL;
   unsigned char msg[33] = {0};
   unsigned char prv_str[33] = {0};
+  unsigned char pub_str[33] = {0};
   unsigned int digest_len = 0;
 
   // Test Random Bit String
@@ -129,6 +130,14 @@ int main() {
   for (int i = 0; i < 256; i++)
       printf("%x", hdw_key.master_chain_code[i]);
   printf("\n");
+  
+  prv = get_private_key(eck2);
+
+  BN_bn2bin(prv, prv_str);
+
+  printf("Getting Child Key\n");
+  HDW_derive_child_keys(NULL, pub_str, msg, 455);
+
   free(ec_key);
   free(eck2);
 
