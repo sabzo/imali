@@ -8,6 +8,7 @@ int main() {
   const EC_POINT *pub = NULL;
   unsigned char msg[33] = {0};
   unsigned char prv_str[33] = {0};
+  unsigned char pub_str[33] = {0};
   unsigned int digest_len = 0;
 
   // Test Random Bit String
@@ -80,7 +81,7 @@ int main() {
   // Base 58 Encoding
   printf("base58Encoding test ... \n");
   unsigned char h[] = "hello";
-  const unsigned char *hash = mb58Encode(h, 5, &offset);//addr, digest_len, &b58l);
+  unsigned char *hash = mb58Encode(h, 5, &offset);//addr, digest_len, &b58l);
   printf("hello in b58: %s\n", hash + offset);
 
   hash = mb58Encode(addr, digest_len, &offset);
@@ -89,7 +90,7 @@ int main() {
   // Decoding
   printf("Test decoding Base58...\n"); 
   int ret_len = 0;
-  unsigned char *hp = mbase58Decode(hash + offset, strlen(hash + offset), &ret_len);   
+  unsigned char *hp = mbase58Decode(hash + offset, BASE58_LEN - 1 - offset, &ret_len); // - 1 because string is null terminated  
   printf("Size of Address mbase58 Decoded string is: %d\n", ret_len);
 
   // Decoded Address
@@ -101,5 +102,50 @@ int main() {
   
   free(hp);
   free(hash);
+  
+  /* Test HDW */
+  printf("Generate seed for HDwallet: \n");
+  unsigned char *seed = mHDW_seed_key_create();
+  for (int i = 0; i < 32; i++)
+      printf("%x", seed[i]);
+  printf("\n");
+ 
+  /* Get mnemonic words array */
+  char **words = mWords_from_file(NULL);  
+  int i = 0;
+  while (i < 2048)
+      free(words[i++]);
+  free(words);
+
+  char **phrase = mHDW_key_mnemonic();
+  for(int i = 0; i < 24; i++) 
+      printf("%s ", phrase[i]);
+
+  // HD Wallet init
+  HDWKey hdw_key = {};
+  HDW_init(&hdw_key);
+  
+
+  printf("Master Chain Code: \n");
+  for (int i = 0; i < 256; i++)
+      printf("%x", hdw_key.master_chain_code[i]);
+  printf("\n");
+  
+  prv = get_private_key(eck2);
+
+  BN_bn2bin(prv, prv_str);
+  HDWKey hdw = {};
+
+  printf("Getting Child Key\n");
+
+  HDW_derive_child_keys(&hdw, pub_str, msg, 455);
+  printf("Child Key Chain Code: \n");
+  for (int i = 0; i < 256; i++)
+      printf("%x", hdw_key.master_chain_code[i]);
+  printf("\n");
+
+  free(ec_key);
+  free(eck2);
+
   return 0;
 }
