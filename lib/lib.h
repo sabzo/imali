@@ -502,6 +502,26 @@ void HDW_init(HDWKey *hdw_key) {
   free(seed_digest);
 } 
 
+/* Adds arbitrary n-bit numbers in a char buffer
+ * returns carry 1 or 0
+ * char *num1, *num2, *result
+ * result is the length of n
+*/
+int mprecision_add(char *num1, char *num2, char *result, int length) {
+  int carry = 0;
+  char sum = 0;
+  *result = 0; // default result pointee to 0 just in case
+  for (int i = 0; i < length * 8; i++) {
+    char n = (num1[i/8] & (1 << i)) >> i;
+    char m = (num2[i/8] & (1 << i)) >> i;
+    sum = ((n + m) << i) + carry;
+    result[i/8] |= sum;
+    //printf("n: %d, m: %d, carry: %d, sum: %d result: %d\n", n, m, carry, sum, result[i/8]);
+    carry = n & m; 
+  }
+  return carry;
+}
+
 /* Derive Child keys from HD Wallet master private key and maste chain code
  * hdw: will store new hd wallet structure
  * public_key: 256 bit string
@@ -534,6 +554,8 @@ void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char
   }
 
   digest_message(EVP_sha512, seed, seed_size, &seed_digest, &size_digest); 
+  // TODO: Add Parent private key to seed_digest[0:256]
+  
   // set master public key in EC_KEY structure
   hdw->ec_key = gen_pub_key_from_priv_key(seed_digest); // will take 256 bits of seed digest
   // set master chain code to last 256 bits of seed digest

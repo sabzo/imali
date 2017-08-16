@@ -144,6 +144,13 @@ int main() {
       printf("%x", hdw_key.master_chain_code[i]);
   printf("\n");
 
+  char four = 14;
+  char five = 15;
+  char result = 0;
+
+  int carry = mprecision_add(&four, &five, &result, 1);
+  printf("carry: %d, result %d: 14 + 15: %d\n", carry, result, four + five);
+
   free(ec_key);
   free(eck2);
 
