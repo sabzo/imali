@@ -505,19 +505,21 @@ void HDW_init(HDWKey *hdw_key) {
 /* Adds arbitrary n-bit numbers in a char buffer
  * returns carry 1 or 0
  * char *num1, *num2, *result
- * result is the length of n
 */
 int mprecision_add(char *num1, char *num2, char *result, int length) {
-  int carry = 0;
+  char carry = 0;
   char sum = 0;
   *result = 0; // default result pointee to 0 just in case
   for (int i = 0; i < length * 8; i++) {
-    char n = (num1[i/8] & (1 << i)) >> i;
-    char m = (num2[i/8] & (1 << i)) >> i;
-    sum = ((n + m) << i) + carry;
+    char n = (num1[i/8] & (1 << (i % 8))) >> (i % 8);
+    char m = (num2[i/8] & (1 << (i % 8))) >> (i % 8);
+    if (i % 8 == 0)
+        printf(" ");
+    // sum = ((n + m) << i % 8) + (carry << 1 % 8);
+    sum = ((n ^ m ^ carry) << i % 8);
     result[i/8] |= sum;
-    //printf("n: %d, m: %d, carry: %d, sum: %d result: %d\n", n, m, carry, sum, result[i/8]);
-    carry = n & m; 
+    // printf("n: %d, m: %d, carry: %d, sum: %d result: %d\n", n, m, carry, sum, result[i/8]);
+    carry = (n & m) | (n & carry) | (m & carry); 
   }
   return carry;
 }

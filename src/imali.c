@@ -144,12 +144,16 @@ int main() {
       printf("%x", hdw_key.master_chain_code[i]);
   printf("\n");
 
-  char four = 14;
-  char five = 15;
-  char result = 0;
+  char four[] = {1, 2, 3, 4, 5};
+  char five[] = {6, 7, 8, 9, 10};
+  char result[5] = {0};
 
-  int carry = mprecision_add(&four, &five, &result, 1);
-  printf("carry: %d, result %d: 14 + 15: %d\n", carry, result, four + five);
+  int carry = mprecision_add(four, five, result, 5);
+  printf("carry: %d\n", carry);
+  for (int i = 0; i < 5; i++)
+    printf("%d ", result[i]);
+  printf("\n");
+
 
   free(ec_key);
   free(eck2);
