@@ -140,9 +140,20 @@ int main() {
 
   HDW_derive_child_keys(&hdw, pub_str, msg, 455);
   printf("Child Key Chain Code: \n");
-  for (int i = 0; i < 256; i++)
+  for (int i = 0; i < 32; i++)
       printf("%x", hdw_key.master_chain_code[i]);
   printf("\n");
+
+  unsigned char four[] = {1, 2, 3, 4, 5};
+  unsigned char five[] = {6, 7, 8, 9, 10};
+  unsigned char result[5] = {0};
+
+  int carry = mprecision_add(four, five, result, 5);
+  printf("carry: %d\n", carry);
+  for (int i = 0; i < 5; i++)
+    printf("%d ", result[i]);
+  printf("\n");
+
 
   free(ec_key);
   free(eck2);
