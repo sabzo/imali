@@ -101,6 +101,20 @@ const BIGNUM *get_private_key(EC_KEY *ec_key) {
   return EC_KEY_get0_private_key(ec_key);
 }
 
+/* Get private key as a string */
+void get_prv_key_str(EC_KEY *ec_prv_key, unsigned char *str_prv_key) {
+  BIGNUM *bn_prv;
+
+  if ((bn_prv = get_private_key(ec_prv_key)) == NULL) {
+    error("Unable to get private key");
+  }
+  // convert bignum to str. error if null
+  if (BN_bn2bin(bn_prv, str_prv_key) == 0) {
+    error("Unable to get priv key to string");
+  }
+
+  BN_free(bn_prv);
+}
 /* Get public key from initialized EC_KEY object */
 const EC_POINT *get_public_key(EC_KEY *ec_key) {
   return EC_KEY_get0_public_key(ec_key);
@@ -403,7 +417,9 @@ unsigned char *mHDW_seed_key_create(void) {
    // Create random 256 bit string 
    // 32 + 1 byte for checksum
   unsigned char *rand_seq = calloc(33, 1);
-  random_256bit_string(rand_seq);
+  EC_KEY *ec_key = init_priv_pub_key_pair();
+  // use OpenSSL to get EC private key 256 bits
+  get_prv_key_str(ec_key, rand_seq);
   unsigned int size_rand_seq = 33;
   unsigned char *checksum = NULL;
   unsigned int size_checksum;
@@ -413,6 +429,7 @@ unsigned char *mHDW_seed_key_create(void) {
   // add first byte of checksum to msg
   rand_seq[32] = checksum[0];
   free(checksum);
+  free(ec_key);
   return rand_seq;
 }
 
