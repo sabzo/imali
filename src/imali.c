@@ -8,6 +8,7 @@ int main() {
   const EC_POINT *pub = NULL;
   unsigned char msg[33] = {0};
   unsigned char prv_str[33] = {0};
+  unsigned char prv_str_2[33] = {0};
   unsigned char pub_str[33] = {0};
   unsigned int digest_len = 0;
 
@@ -31,7 +32,14 @@ int main() {
 
   BN_bn2bin(prv, prv_str);
   printf("private key 1 %s\npublic key 1: %s\n", BN_bn2hex(prv), pub_key_hex(ec_key));
-  
+ 
+ printf("private key using get_prv_key_str:\n");
+ get_prv_key_str(ec_key, prv_str_2);
+ for (int i = 0; i < 32; i++) {
+   printf("%x", prv_str[i]);
+ }
+ printf("\n");
+
   printf("\n Generating a public key from randomly chose 256-bit string...\n");
   /* Generate Public Key from private key */
   eck2 = gen_pub_key_from_priv_key(msg);
@@ -140,12 +148,21 @@ int main() {
 
   HDW_derive_child_keys(&hdw, pub_str, msg, 455);
   printf("Child Key Chain Code: \n");
-  for (int i = 0; i < 256; i++)
+  for (int i = 0; i < 32; i++)
       printf("%x", hdw_key.master_chain_code[i]);
   printf("\n");
 
-  free(ec_key);
-  free(eck2);
+  unsigned char four[] = {1, 2, 3, 4, 5};
+  unsigned char five[] = {6, 7, 8, 9, 10};
+  unsigned char result[5] = {0};
+  int carry = mprecision_add(four, five, result, 5); 
 
-  return 0;
+  printf("carry: %d\n", carry); 
+  for (int i = 0; i < 5; i++) 
+    printf("%d ", result[i]); 
+
+  printf("\n"); 
+  free(ec_key); 
+  free(eck2); 
+  return 0; 
 }
