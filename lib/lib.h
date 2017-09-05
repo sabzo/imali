@@ -255,13 +255,13 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   BIGNUM *bn0 = NULL;
   BIGNUM *bn_msg = NULL;
   BIGNUM *bn_dv = NULL;
-  BIGNUM *rem = NULL;
+  BIGNUM *bn_rem = NULL;
   BIGNUM *temp = NULL;
 
   // these binary numbers will be converted into Openssl Big Number format
   const unsigned char bin58 = 58;
 
-  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(bn_dv = BN_new()) || !(rem = BN_new()) || !(temp = BN_new()))
+  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(bn_dv = BN_new()) || !(bn_rem = BN_new()) || !(temp = BN_new()))
     printf("Unable to create big numbers for b58 encode");
 
   // Convert 58, 0 and msg into Big Numbers
@@ -273,131 +273,136 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   // Convert msg into a bignum to prepare for bignum division
   BN_bin2bn(msg, msg_len, bn_dv);
 
-  char unsigned bin_rem = 0; // Create remainder variable as a char
+  unsigned char *bin_rem; // Create remainder variable as a char
 
-  unsigned char *str = malloc(sizeof(char) * BASE58_LEN); // output string
+  unsigned char *str = calloc(BASE58_LEN, 1); // output string
 
   int i = BASE58_LEN -1;
-
-  str[i--] = '\0'; // create null terminated string
 
   // while bn_msg as x > 0  divide x by 58
   while (BN_cmp(bn_dv, bn0) > 0) {
     if (!BN_copy(temp, bn_dv))
       error("unable to copy bn_dv to temp");
-
-     // printf("%lu / %lu = ", *temp->d, *bn58->d);
-    if (!BN_div(bn_dv, rem, temp, bn58, ctx))
+    // printf("%lu / %lu = ", *temp->d, *bn58->d);
+    if (!BN_div(bn_dv, bn_rem, temp, bn58, ctx))
       error("Unable to perform BIGNUM division");
 
-     // printf("bn_dv %lu rem: %lu\n", *bn_dv->d, *rem->d);
+    // printf("bn_dv %lu bn_rem: %lu\n", *bn_dv->d, *bn_rem->d);
 
-    BN_bn2bin(rem, &bin_rem); 
-
-    str[i--] = b58[bin_rem];  // TODO: remove extra decrement
-  }
-
-  i++; // sloppy fix of extra decrement from above while loop
-
-  // Replace leading zeros in msg hash with the b58 representation of a zero
-  int yes = 0; 
-  do {
-    yes = (*msg && *msg++ == '0');
-    if (yes) {
-      str[i] = b58[0];
-      printf("has leading zero\n");
+    bin_rem = malloc(BN_num_bytes(bn_rem));
+    if (BN_is_zero(bn_rem)) {
+      *bin_rem = 0;
+    }else if (!BN_bn2bin(bn_rem, bin_rem)) {
+      error("Unable to convert BN bn_rem to a binary");
     }
-  } while (yes && i--); 
 
-  // return offset
-  *offset= i;
+str[--i] = b58[*bin_rem];  // TODO: remove extra decrement
+free(bin_rem);
+}
 
-  // FREE BIG NUMBER variables
-  BN_free(bn58);
-  BN_free(bn0);
-  BN_free(bn_msg);
-  BN_free(bn_dv);
-  BN_free(rem);
 
-  BN_CTX_end(ctx);
-  BN_CTX_free(ctx);
+// Replace leading zeros in msg hash with the b58 representation of a zero
+int yes = 0; 
+do {
+//printf("msg[0] %x\n", msg[0]);
+yes = (*msg && *msg == 0);
 
-  return str;
+msg++;
+if (yes) {
+  str[i] = b58[0];
+  printf("has leading zero\n");
+}
+} while (yes && i--); 
+
+// return offset
+*offset= i;
+
+// FREE BIG NUMBER variables
+BN_free(bn58);
+BN_free(bn0);
+BN_free(bn_msg);
+BN_free(bn_dv);
+BN_free(bn_rem);
+
+BN_CTX_end(ctx);
+BN_CTX_free(ctx);
+
+return str;
 }
 
 /* Find position of character in string str. Searches up to len length or when \0 is encountered */
 int strpos(const char c, const char *str, int len) {
-  int pos = 0;
-  while (*(str + pos)) {
-   if ( *(str + pos) == c) 
-     return pos;
-   pos++;
-  }
-  return -1;
+int pos = 0;
+while (*(str + pos)) {
+if ( *(str + pos) == c) 
+ return pos;
+pos++;
 }
-    
+return -1;
+}
+
 /* Convert a base58 string into a binary number.
- * Binary number maybe larger than can be represented by a data type.
- * Returned value is a char buffer
+* Binary number maybe larger than can be represented by a data type.
+* Returned value is a char buffer
 */
 unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len) {
-  BN_CTX *ctx = NULL;
-  if ((ctx = BN_CTX_new()) == NULL) {
-    printf("Unable to to create BN CTX\n");
-    exit(1);
-  }
-  BN_CTX_start(ctx);
-  
-  BIGNUM *subtotal = BN_new();
-  BIGNUM *total = BN_new();
-  BN_zero(total); // zero initialize total
-  BIGNUM *bn_num = BN_new();
-  BIGNUM *temp = BN_new();
-  BIGNUM *bn58 = BN_new();
-  BIGNUM *bnexp = BN_new();
+BN_CTX *ctx = NULL;
+if ((ctx = BN_CTX_new()) == NULL) {
+printf("Unable to to create BN CTX\n");
+exit(1);
+}
+BN_CTX_start(ctx);
 
-  const unsigned char ch58 =  58;
-  unsigned char chexp = 0; // assumes size of exponent < 255
-  unsigned char *str =  NULL;
-  
-  // (num  * 58 ^ exp) + (num * 58 ^ exp-1) ... + (num * 58 ^ epx-n)
-  for (unsigned char i = 0; i < msg_sz; i++) {
-    const unsigned char *c =  msg + i;
-    if (*c) {
-      // Convert 58 as a char to 58 as a BIGNUMBER
-      BN_bin2bn(&ch58, 1, bn58);
-      chexp = (msg_sz - 1 - i);
-      // convert the char exponent to a BIGNUMBER
-      BN_bin2bn(&chexp, 1, bnexp);
-      const unsigned char num = strpos(*c, b58, 58);
-      // convert num to a temporary BIG NUM variable. 
-      BN_bin2bn(&num, 1, bn_num);
-      // raise 58 to exponentj
-      BN_exp(temp, bn58, bnexp, ctx);
-      // subtotal = num * temp 
-      BN_mul(subtotal, bn_num, temp, ctx);
-      //total = total + subtotal 
-      BN_add(total, total, subtotal);
-    }
-  }
-  // Allocate char const * large enough to store BIGNUMBER 
-  unsigned int bytes = BN_num_bytes(total);
-  str = malloc(bytes);
-  // Convert BIGNUMBER total into binary: unsigned char *
-  if ((*ret_len = BN_bn2bin(total, str)) == 0) 
-     error ("Wrote zero bytes when converting BIGNUM total to str char *");
+BIGNUM *subtotal = BN_new();
+BIGNUM *total = BN_new();
+BN_zero(total); // zero initialize total
+BIGNUM *bn_num = BN_new();
+BIGNUM *temp = BN_new();
+BIGNUM *bn58 = BN_new();
+BIGNUM *bnexp = BN_new();
 
-  
-  BN_free(subtotal);
-  BN_free(total);
-  BN_free(temp);
-  BN_free(bn_num);
-  BN_free(bn58);
-  BN_free(bnexp);
- 
-  BN_CTX_end(ctx);
-  BN_CTX_free(ctx);
-  return str;
+const unsigned char ch58 =  58;
+unsigned char chexp = 0; // assumes size of exponent < 255
+unsigned char *str =  NULL;
+
+// (num  * 58 ^ exp) + (num * 58 ^ exp-1) ... + (num * 58 ^ epx-n)
+for (unsigned char i = 0; i < msg_sz; i++) {
+const unsigned char *c =  msg + i;
+if (*c) {
+  // Convert 58 as a char to 58 as a BIGNUMBER
+  BN_bin2bn(&ch58, 1, bn58);
+  chexp = (msg_sz - 1 - i);
+  // convert the char exponent to a BIGNUMBER
+  BN_bin2bn(&chexp, 1, bnexp);
+  const unsigned char num = strpos(*c, b58, 58);
+  // convert num to a temporary BIG NUM variable. 
+  BN_bin2bn(&num, 1, bn_num);
+  // raise 58 to exponentj
+  BN_exp(temp, bn58, bnexp, ctx);
+  // subtotal = num * temp 
+  BN_mul(subtotal, bn_num, temp, ctx);
+  //total = total + subtotal 
+  BN_add(total, total, subtotal);
+}
+}
+// Allocate char const * large enough to store BIGNUMBER 
+unsigned int bytes = BN_num_bytes(total);
+str = calloc(bytes + 1, 1);// null terminate string incase wanting to print
+// Convert BIGNUMBER total into binary: unsigned char *
+if ((*ret_len = BN_bn2bin(total, str)) == 0) 
+ error ("Wrote zero bytes when converting BIGNUM total to str char *");
+
+
+BN_free(subtotal);
+BN_free(total);
+BN_free(temp);
+BN_free(bn_num);
+BN_free(bn58);
+BN_free(bnexp);
+
+BN_CTX_end(ctx);
+BN_CTX_free(ctx);
+return str;
 }
 
 /* 
@@ -586,4 +591,3 @@ void HDW_derive_child_keys(HDWKey *hdw, unsigned char *public_key, unsigned char
   free(seed);
   free(seed_digest);
 }
-
