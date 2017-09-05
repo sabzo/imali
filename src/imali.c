@@ -54,7 +54,7 @@ int main() {
 
   printf("Address: \n");
   for (int i = 0; i < digest_len; i++) {
-       printf("%x", addr[i]);
+       printf("%02x", addr[i]);
   }
   printf("\nAddress Length is: %d\n", digest_len);
  
@@ -97,7 +97,7 @@ int main() {
   	c++;
   }
 
-  hash = mb58Encode(addr, digest_len, &offset);
+  hash = mb58Encode(addr,digest_len, &offset);
   printf("addr in b58: %s offset: %d length: %d digest length: %d\n", hash + offset, offset, strlen(hash + offset), digest_len);
 
   // Decoding
@@ -109,7 +109,7 @@ int main() {
   // Decoded Address
   printf("Decoded Addres:\n");
   for (int i = 0; i < ret_len; i++) {
-         printf("%x", hp[i]);
+         printf("%02x", hp[i]);
   	 if (addr[i] != hp[i])
            same = 0; 
    }

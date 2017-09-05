@@ -214,13 +214,13 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   BIGNUM *bn0 = NULL;
   BIGNUM *bn_msg = NULL;
   BIGNUM *bn_dv = NULL;
-  BIGNUM *rem = NULL;
+  BIGNUM *bn_rem = NULL;
   BIGNUM *temp = NULL;
 
   // these binary numbers will be converted into Openssl Big Number format
   const unsigned char bin58 = 58;
 
-  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(bn_dv = BN_new()) || !(rem = BN_new()) || !(temp = BN_new()))
+  if (!(bn58 = BN_new()) || !(bn0 = BN_new()) || !(bn_msg = BN_new()) || !(bn_dv = BN_new()) || !(bn_rem = BN_new()) || !(temp = BN_new()))
     printf("Unable to create big numbers for b58 encode");
 
   // Convert 58, 0 and msg into Big Numbers
@@ -232,7 +232,7 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   // Convert msg into a bignum to prepare for bignum division
   BN_bin2bn(msg, msg_len, bn_dv);
 
-  char unsigned bin_rem = 0; // Create remainder variable as a char
+  unsigned char *bin_rem; // Create remainder variable as a char
 
   unsigned char *str = calloc(BASE58_LEN, 1); // output string
 
@@ -242,17 +242,23 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   while (BN_cmp(bn_dv, bn0) > 0) {
     if (!BN_copy(temp, bn_dv))
       error("unable to copy bn_dv to temp");
-
-     // printf("%lu / %lu = ", *temp->d, *bn58->d);
-    if (!BN_div(bn_dv, rem, temp, bn58, ctx))
+    // printf("%lu / %lu = ", *temp->d, *bn58->d);
+    if (!BN_div(bn_dv, bn_rem, temp, bn58, ctx))
       error("Unable to perform BIGNUM division");
 
-     // printf("bn_dv %lu rem: %lu\n", *bn_dv->d, *rem->d);
+    // printf("bn_dv %lu bn_rem: %lu\n", *bn_dv->d, *bn_rem->d);
 
-    BN_bn2bin(rem, &bin_rem); 
+    bin_rem = malloc(BN_num_bytes(bn_rem));
+    if (BN_is_zero(bn_rem)) {
+      *bin_rem = 0;
+    }else if (!BN_bn2bin(bn_rem, bin_rem)) {
+      error("Unable to convert BN bn_rem to a binary");
+    }
 
-    str[--i] = b58[bin_rem];  // TODO: remove extra decrement
+    str[--i] = b58[*bin_rem];  // TODO: remove extra decrement
+    free(bin_rem);
   }
+
 
   // Replace leading zeros in msg hash with the b58 representation of a zero
   int yes = 0; 
@@ -275,7 +281,7 @@ unsigned char *mb58Encode(const unsigned char *msg, int msg_len, int *offset) {
   BN_free(bn0);
   BN_free(bn_msg);
   BN_free(bn_dv);
-  BN_free(rem);
+  BN_free(bn_rem);
 
   BN_CTX_end(ctx);
   BN_CTX_free(ctx);
