@@ -88,25 +88,44 @@ int main() {
 
   // Base 58 Encoding
   printf("base58Encoding test ... \n");
-  unsigned char h[] = "hello";
-  unsigned char *hash = mb58Encode(h, 5, &offset);//addr, digest_len, &b58l);
-  printf("hello in b58: %s\n", hash + offset);
 
-  hash = mb58Encode(addr, digest_len, &offset);
-  printf("addr in b58: %s\n", hash + offset);
+  unsigned char h[] = "abcdeabcdeabcdeabcde";
+  for (int i = 0; i < 20; i++)
+    printf("%02x", h[i]);
+  printf("\n");
+  
+  int c = 0;
+  int ret_len = 0;
+  const unsigned char *hash = NULL;
+  unsigned char *hp = NULL;
+  while (c < digest_len ) {
+	  hash = mb58Encode(h, digest_len - c, &offset);//addr, digest_len, &b58l);
+  	  hp = mbase58Decode(hash + offset, strlen(hash + offset), &ret_len);        
+	  printf("%s in b58: %s offset: %d Decoded: %s", h + c, hash + offset, offset, hp);
+	  hash = mb58Encode(hp, ret_len, &offset);
+          printf(" recoded: %s\n", hash + offset);
+  	c++;
+  }
+
+  hash = mb58Encode(addr,digest_len, &offset);
+  printf("addr in b58: %s offset: %d length: %d digest length: %d\n", hash + offset, offset, strlen(hash + offset), digest_len);
 
   // Decoding
   printf("Test decoding Base58...\n"); 
-  int ret_len = 0;
-  unsigned char *hp = mbase58Decode(hash + offset, BASE58_LEN - 1 - offset, &ret_len); // - 1 because string is null terminated  
+  hp = mbase58Decode(hash + offset, strlen(hash + offset), &ret_len);   
   printf("Size of Address mbase58 Decoded string is: %d\n", ret_len);
 
+  int same = 1;
   // Decoded Address
   printf("Decoded Addres:\n");
   for (int i = 0; i < ret_len; i++) {
          printf("%02x", hp[i]);
+  	 if (addr[i] != hp[i])
+           same = 0; 
    }
   printf("\n");
+  if (!same) 
+   printf("addr and decoded addr not same!!\n");
   
   free(hp);
   free(hash);
