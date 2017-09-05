@@ -387,7 +387,7 @@ unsigned char *mbase58Decode(const unsigned char *msg, int msg_sz, int *ret_len)
   }
   // Allocate char const * large enough to store BIGNUMBER 
   unsigned int bytes = BN_num_bytes(total);
-  str = calloc(bytes + 1, 1);// null terminate string incase wanting to print
+  str = calloc(bytes + 1, 0);// null terminate string incase wanting to print
   // Convert BIGNUMBER total into binary: unsigned char *
   if ((*ret_len = BN_bn2bin(total, str)) == 0) 
    error ("Wrote zero bytes when converting BIGNUM total to str char *");
