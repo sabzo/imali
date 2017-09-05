@@ -6,14 +6,15 @@ A Cryptocurrency implementation from first principles and written in C.
 # Functionality
 * [x] Create SHA 256 private key
 * [x] Generate private & public key pair using Elliptic Curve
-* [ ] Create a Wallet: Heirarchical Determenistic Wallet
+* [x] Generate Heirarchical Deterministic Wallet (HD Wallet)
 * [ ] Create transactions, sign transactions and verify transactions
 * [ ] Create a Blockchain of transactions
 * [ ] Create a Distributed Network and Consensus Algorithm
 
 # Requirements
 - [OpenSSL 1.1.0] (https://github.com/openssl/openssl/blob/master/INSTALL)
-  
+- [libssl-dev] (https://wiki.openssl.org/index.php/Libssl_API)
+
 # References
      - [Bitcoin and Cryptocurrency Technologies] (http://bitcoinbook.cs.princeton.edu)
      - "Mastering Bitcoins" Unlocking Cryptocurrencies 
